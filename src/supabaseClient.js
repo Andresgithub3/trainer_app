@@ -3,8 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!url || !anonKey) {
-  console.error('Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY — copy .env.example to .env.')
-}
+// Which required env vars are missing (drives the config screen instead of a
+// blank page — createClient throws if either is undefined).
+export const missingEnv = [
+  !url && 'VITE_SUPABASE_URL',
+  !anonKey && 'VITE_SUPABASE_ANON_KEY',
+].filter(Boolean)
 
-export const supabase = createClient(url, anonKey)
+export const supabase = missingEnv.length ? null : createClient(url, anonKey)
