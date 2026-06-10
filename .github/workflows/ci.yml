@@ -15,6 +15,11 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      # Use `npm install`, not `npm ci`: the lockfile is authored on Windows,
+      # where npm can't resolve Vite/Rolldown's wasm32-wasi optional branch
+      # (@emnapi/core, @emnapi/runtime). `npm ci`'s strict sync check rejects the
+      # resulting cross-platform gap on Linux; `npm install` reconciles it while
+      # still honouring the locked versions.
+      - run: npm install --no-audit --no-fund
       - run: npm run lint
       - run: npm run test
