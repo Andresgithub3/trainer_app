@@ -426,6 +426,71 @@ select.input {
   min-height: 44px;
 }
 
+/* ---- Settings ---- */
+.tm-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.7rem 0;
+}
+.tm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+.tm-name {
+  font-weight: 600;
+}
+.bar-row {
+  margin: 0.8rem 0;
+}
+.plate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.4rem 0 0.8rem;
+}
+.plate-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.plate-w {
+  font-weight: 700;
+  min-width: 4rem;
+}
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+.stepper .chip-btn {
+  flex: none;
+  width: 48px;
+  font-size: 1.3rem;
+}
+.stepper-count {
+  min-width: 2rem;
+  text-align: center;
+  font-weight: 800;
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+.add-plate {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+.add-plate .input {
+  flex: 1;
+}
+.add-plate-btn {
+  width: auto;
+  padding: 0 1.2rem;
+}
+
 .tm-card {
   border-color: var(--line);
 }

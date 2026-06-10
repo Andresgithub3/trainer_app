@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { useAuth } from '../auth/authContext.js'
 import TodaySession from '../features/today/TodaySession.jsx'
 import SessionLog from '../features/log/SessionLog.jsx'
+import Settings from '../features/settings/Settings.jsx'
 
 // Charts (Recharts) are heavy and only needed on the Progress tab — load on demand.
 const Progress = lazy(() => import('../features/progress/Progress.jsx'))
@@ -10,6 +11,7 @@ const TABS = [
   { id: 'today', label: 'Today' },
   { id: 'log', label: 'Log' },
   { id: 'progress', label: 'Progress' },
+  { id: 'settings', label: 'Settings' },
 ]
 
 export default function AppShell() {
@@ -33,6 +35,7 @@ export default function AppShell() {
             <Progress />
           </Suspense>
         )}
+        {tab === 'settings' && <Settings />}
       </main>
 
       <nav className="bottom-nav">
