@@ -25,7 +25,7 @@ export function useProgramData() {
       supabase
         .from('sessions')
         .select('*')
-        .neq('status', 'completed')
+        .in('status', ['upcoming', 'in_progress'])
         .order('date', { ascending: true })
         .limit(1)
         .maybeSingle(),

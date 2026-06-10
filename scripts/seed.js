@@ -7,6 +7,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { waveWeights } from '../lib/waveWeights.js'
 import { closestLoadable } from '../lib/plateRounding.js'
+import { generateProgram } from '../lib/calendar.js'
 
 try {
   process.loadEnvFile('.env')
@@ -78,13 +79,17 @@ const PLATE_INVENTORY = [
   { plate_weight: 45, count_per_side: 1, bar_weight: BAR },
 ]
 
-// Completed sessions. `tmAtTime` is the TM in effect when the session was done
-// (used to derive prescribed weights). Only the AMRAP top set has recorded
-// actuals; back-off actuals weren't logged, so they stay null.
-const SESSIONS = [
-  {
-    lift: 'Bench', day_type: 'bench', date: '2026-06-02', block: 1, week: 1, status: 'completed',
-    tmAtTime: 135, amrap: { weight: 110, reps: 16 },
+// Current program "today": the next session is the earliest upcoming one on or
+// after this date. Past sessions that were never logged are marked 'skipped', so
+// the catch-up model surfaces Bench (Jun 9) as next — not the unlogged Week-1
+// Squat/runs that aren't part of the recorded history.
+const CUTOFF = '2026-06-09'
+
+// The four completed sessions (SEED_DATA.md), keyed by date. tmAtTime is the TM
+// in effect then (drives prescribed weights). Only the AMRAP top set has actuals.
+const COMPLETED = {
+  '2026-06-02': {
+    lift: 'Bench', tmAtTime: 135, amrap: { weight: 110, reps: 16 },
     accessories: [
       { name: 'Pull-ups', set1_weight: 'bodyweight (~200)', set1_reps: 7, set2_weight: 'banded (assisted)', set2_reps: 8 },
       { name: 'DB Shoulder Press', set1_weight: '35', set1_reps: 16, set2_weight: '25', set2_reps: 14, notes: 'DBs capped at 35 lb → slow tempo when reps exceed zone' },
@@ -92,9 +97,8 @@ const SESSIONS = [
       { name: 'Barbell Curl', set1_weight: '65', set1_reps: 8, set2_weight: '55', set2_reps: 7 },
     ],
   },
-  {
-    lift: 'Deadlift', day_type: 'deadlift', date: '2026-06-04', block: 1, week: 1, status: 'completed',
-    tmAtTime: 145, amrap: { weight: 125, reps: 14 },
+  '2026-06-04': {
+    lift: 'Deadlift', tmAtTime: 145, amrap: { weight: 125, reps: 14 },
     accessories: [
       { name: 'Front Squat', set1_weight: '95', set1_reps: 12, set2_weight: '75', set2_reps: 13 },
       { name: 'RDL', set1_weight: '115', set1_reps: null, set2_weight: '115', set2_reps: null, notes: 'No drop set taken' },
@@ -102,9 +106,8 @@ const SESSIONS = [
       { name: 'Face Pulls', set1_weight: '4 plates', set1_reps: null, set2_weight: '3 plates', set2_reps: null },
     ],
   },
-  {
-    lift: 'OHP', day_type: 'ohp', date: '2026-06-05', block: 1, week: 1, status: 'completed',
-    tmAtTime: 75, amrap: { weight: 65, reps: 12 },
+  '2026-06-05': {
+    lift: 'OHP', tmAtTime: 75, amrap: { weight: 65, reps: 12 },
     accessories: [
       { name: 'Dips', set1_weight: 'bodyweight', set1_reps: 8, set2_weight: 'bodyweight', set2_reps: 8, notes: 'Add weight belt when 8 reps becomes easy' },
       { name: 'Lateral Raises', set1_weight: '15', set1_reps: 12, set2_weight: '10', set2_reps: 12 },
@@ -113,9 +116,8 @@ const SESSIONS = [
       { name: 'Tricep Rope Pushdown', set1_weight: '3 plates', set1_reps: 12, set2_weight: '2 plates', set2_reps: 12 },
     ],
   },
-  {
-    lift: 'Squat', day_type: 'squat', date: '2026-06-08', block: 1, week: 2, status: 'completed',
-    tmAtTime: 170, amrap: { weight: 145, reps: 12 },
+  '2026-06-08': {
+    lift: 'Squat', tmAtTime: 170, amrap: { weight: 145, reps: 12 },
     accessories: [
       { name: 'Bulgarian Split Squat', set1_weight: '60', set1_reps: 8, set2_weight: '40', set2_reps: 8 },
       { name: 'Hamstring Curl', set1_weight: '25', set1_reps: 10, set2_weight: '25', set2_reps: 10, notes: 'Single-leg going forward; start weaker LEFT leg (ACL), match right to left' },
@@ -123,12 +125,7 @@ const SESSIONS = [
       { name: 'DB Row', set1_weight: '45 plate', set1_reps: 10, set2_weight: '35 plate', set2_reps: 10 },
     ],
   },
-  // Next session: Bench, Tue Jun 9 2026 (Week 2). No logs yet.
-  {
-    lift: 'Bench', day_type: 'bench', date: '2026-06-09', block: 1, week: 2, status: 'upcoming',
-    tmAtTime: null, amrap: null, accessories: [],
-  },
-]
+}
 
 // --- Seed -------------------------------------------------------------------
 
@@ -171,35 +168,38 @@ async function main() {
     id: 1, current_block: 1, current_week: 2, program_start_date: PROGRAM_START,
   })).error)
 
-  console.log('Inserting sessions + logs…')
-  for (const s of SESSIONS) {
-    const { data: sessionRows, error: sErr } = await supabase
-      .from('sessions')
-      .insert({ date: s.date, day_type: s.day_type, block: s.block, week: s.week, status: s.status })
-      .select()
-    die(`insert session ${s.day_type} ${s.date}`, sErr)
-    const sessionId = sessionRows[0].id
+  console.log('Generating 12-week calendar + logs…')
+  const program = generateProgram(PROGRAM_START)
+  const weekByDate = Object.fromEntries(program.map((s) => [s.date, s.week]))
 
-    if (s.status === 'completed') {
-      const sets = prescribedSets(s.tmAtTime, s.week).map((set) => ({
-        session_id: sessionId,
-        lift_id: liftId[s.lift],
-        ...set,
-        // Only the AMRAP top set's actuals were recorded.
-        actual_weight: set.is_amrap ? s.amrap.weight : null,
-        actual_reps: set.is_amrap ? s.amrap.reps : null,
-      }))
-      die(`insert set_logs ${s.day_type}`, (await supabase.from('set_logs').insert(sets)).error)
-    }
+  const sessionRows = program.map((s) => ({
+    date: s.date,
+    day_type: s.dayType,
+    block: s.block,
+    week: s.week,
+    status: COMPLETED[s.date] ? 'completed' : s.date < CUTOFF ? 'skipped' : 'upcoming',
+  }))
+  const { data: inserted, error: sErr } = await supabase.from('sessions').insert(sessionRows).select()
+  die('insert sessions', sErr)
+  const idByDate = Object.fromEntries(inserted.map((r) => [r.date, r.id]))
 
-    if (s.accessories.length) {
-      die(`insert accessory_logs ${s.day_type}`, (await supabase.from('accessory_logs').insert(
-        s.accessories.map((a) => ({ session_id: sessionId, ...a })),
-      )).error)
-    }
+  for (const [date, info] of Object.entries(COMPLETED)) {
+    const sessionId = idByDate[date]
+    const sets = prescribedSets(info.tmAtTime, weekByDate[date]).map((set) => ({
+      session_id: sessionId,
+      lift_id: liftId[info.lift],
+      ...set,
+      // Only the AMRAP top set's actuals were recorded.
+      actual_weight: set.is_amrap ? info.amrap.weight : null,
+      actual_reps: set.is_amrap ? info.amrap.reps : null,
+    }))
+    die(`insert set_logs ${info.lift}`, (await supabase.from('set_logs').insert(sets)).error)
+    die(`insert accessory_logs ${info.lift}`, (await supabase.from('accessory_logs').insert(
+      info.accessories.map((a) => ({ session_id: sessionId, ...a })),
+    )).error)
   }
 
-  console.log('\n✓ Seed complete.')
+  console.log(`\n✓ Seed complete (${sessionRows.length} sessions).`)
 }
 
 main().catch((e) => {

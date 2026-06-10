@@ -319,6 +319,10 @@ body {
   width: 100%;
   margin-top: 0.3rem;
 }
+.skip-btn {
+  align-self: center;
+  text-decoration: underline;
+}
 
 .tm-card {
   border-color: var(--line);

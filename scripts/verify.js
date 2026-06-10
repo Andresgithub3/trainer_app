@@ -38,17 +38,30 @@ async function main() {
   const tms = Object.fromEntries((lifts ?? []).map((l) => [l.name, Number(l.current_tm)]))
   check('Training Maxes', tms, { Squat: 185, Bench: 150, Deadlift: 165, OHP: 75 })
 
-  // Next session = earliest non-completed session.
+  // Next session = earliest pending (upcoming/in_progress) session — the
+  // catch-up model: completed and skipped sessions are excluded.
   const { data: next } = await supabase
     .from('sessions')
     .select('day_type, date, week')
-    .neq('status', 'completed')
+    .in('status', ['upcoming', 'in_progress'])
     .order('date', { ascending: true })
     .limit(1)
     .single()
   check('next session day_type', next?.day_type, 'bench')
   check('next session date', next?.date, '2026-06-09')
   check('next session week', next?.week, 2)
+
+  // Full 12-week calendar materialized (6 non-rest sessions × 12 weeks).
+  const { count: total } = await supabase
+    .from('sessions')
+    .select('*', { count: 'exact', head: true })
+  check('total sessions (12-week calendar)', total, 72)
+
+  const { count: block3 } = await supabase
+    .from('sessions')
+    .select('*', { count: 'exact', head: true })
+    .eq('block', 3)
+  check('block-3 sessions exist (self-sustains)', block3, 24)
 
   const { data: inv } = await supabase
     .from('plate_inventory')
