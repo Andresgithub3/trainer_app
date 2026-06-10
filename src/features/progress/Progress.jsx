@@ -3,6 +3,8 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -10,6 +12,7 @@ import {
   Legend,
 } from 'recharts'
 import { useProgressData } from '../../hooks/useProgressData.js'
+import { RUN_PLAN, weekGlobalOf } from '../../../lib/runPlan.js'
 
 const LIFTS = [
   { name: 'Squat', color: '#ff6b35' },
@@ -45,6 +48,26 @@ function buildTmSeries(tmHistory) {
       row[name] = v
     }
     return row
+  })
+}
+
+// Weekly run miles: planned (easy + long) vs actual logged, weeks 1–12.
+function buildRunVolume(runs) {
+  const actual = {}
+  for (const r of runs) {
+    const s = r.sessions
+    if (!s) continue
+    const wg = weekGlobalOf(s.block, s.week)
+    actual[wg] = (actual[wg] ?? 0) + (Number(r.distance) || 0)
+  }
+  return Array.from({ length: 12 }, (_, i) => {
+    const week = i + 1
+    const plan = RUN_PLAN[week]
+    return {
+      week,
+      planned: Math.round((plan.easy + plan.long) * 10) / 10,
+      actual: Math.round((actual[week] ?? 0) * 10) / 10,
+    }
   })
 }
 
@@ -101,6 +124,7 @@ export default function Progress() {
 
   const tmData = useMemo(() => buildTmSeries(tmHistory), [tmHistory])
   const amrapData = useMemo(() => buildAmrapSeries(amrap), [amrap])
+  const runData = useMemo(() => buildRunVolume(runs), [runs])
 
   if (loading) return <div className="centered muted">Loading progress…</div>
   if (error) return <div className="centered error">Couldn’t load: {error.message}</div>
@@ -125,12 +149,18 @@ export default function Progress() {
         )}
       </ChartCard>
 
-      <ChartCard title="Run volume" subtitle="vs. the 12-week plan">
-        {runs.length ? (
-          <div className="muted">{runs.length} runs logged.</div>
-        ) : (
-          <div className="muted">No runs logged yet — run logging is coming next.</div>
-        )}
+      <ChartCard title="Run volume" subtitle="Weekly miles: planned vs. logged">
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={runData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <CartesianGrid stroke="#2c2c31" vertical={false} />
+            <XAxis dataKey="week" stroke="#9a9aa2" fontSize={11} />
+            <YAxis stroke="#9a9aa2" fontSize={11} width={40} />
+            <Tooltip contentStyle={tooltipStyle} labelFormatter={(w) => `Week ${w}`} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Bar dataKey="planned" fill="#3a3a40" />
+            <Bar dataKey="actual" fill="#ff6b35" />
+          </BarChart>
+        </ResponsiveContainer>
       </ChartCard>
 
       <div className="card">

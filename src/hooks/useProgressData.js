@@ -18,7 +18,7 @@ export function useProgressData() {
         .select('actual_reps, actual_weight, sessions(date), lifts(name)')
         .eq('is_amrap', true),
       supabase.from('sessions').select('status, week, block, day_type, date'),
-      supabase.from('runs').select('type, duration_min, distance, sessions(date, week)'),
+      supabase.from('runs').select('type, duration_min, distance, sessions(date, week, block)'),
     ])
 
     const error = tm.error || amrap.error || sessions.error || runs.error || null

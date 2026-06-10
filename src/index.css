@@ -491,6 +491,34 @@ select.input {
   padding: 0 1.2rem;
 }
 
+/* ---- Run card + accessory preview ---- */
+.run-card .weight-row {
+  margin-bottom: 0.3rem;
+}
+.acc-preview-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.acc-preview-list li {
+  border-top: 1px solid var(--line);
+  padding-top: 0.5rem;
+}
+.acc-preview-list li:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+.acc-pname {
+  font-weight: 600;
+}
+.acc-pnote {
+  font-size: 0.82rem;
+  margin-top: 0.15rem;
+}
+
 .tm-card {
   border-color: var(--line);
 }

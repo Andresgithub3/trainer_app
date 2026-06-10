@@ -9,6 +9,7 @@ const EMPTY = {
   inventory: [],
   barWeight: 45,
   nextSession: null,
+  allSessions: [],
 }
 
 // Loads the data the Today card needs (settings, lifts, plate inventory, the
@@ -18,7 +19,7 @@ export function useProgramData() {
   const [state, setState] = useState(EMPTY)
 
   const load = useCallback(async () => {
-    const [settings, lifts, inventory, session] = await Promise.all([
+    const [settings, lifts, inventory, session, all] = await Promise.all([
       supabase.from('settings').select('*').maybeSingle(),
       supabase.from('lifts').select('*'),
       supabase.from('plate_inventory').select('*').order('plate_weight', { ascending: true }),
@@ -29,10 +30,11 @@ export function useProgramData() {
         .order('date', { ascending: true })
         .limit(1)
         .maybeSingle(),
+      supabase.from('sessions').select('status, block, week, day_type'),
     ])
 
     const error =
-      settings.error || lifts.error || inventory.error || session.error || null
+      settings.error || lifts.error || inventory.error || session.error || all.error || null
 
     const invRows = inventory.data ?? []
     setState({
@@ -43,6 +45,7 @@ export function useProgramData() {
       inventory: invRows.flatMap((p) => Array(p.count_per_side).fill(Number(p.plate_weight))),
       barWeight: Number(invRows[0]?.bar_weight ?? 45),
       nextSession: session.data ?? null,
+      allSessions: all.data ?? [],
     })
   }, [])
 

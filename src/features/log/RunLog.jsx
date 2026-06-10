@@ -3,10 +3,10 @@ import { supabase } from '../../supabaseClient.js'
 import { DAY_LABEL, formatSessionDate } from '../../lib/dayTypes.js'
 
 // Run-day logging (PRD §5.4): type, duration, distance, perceived effort.
-export default function RunLog({ session, reload }) {
+export default function RunLog({ session, targetMiles, reload }) {
   const [type, setType] = useState(session.day_type === 'long_run' ? 'long' : 'easy')
   const [duration, setDuration] = useState('')
-  const [distance, setDistance] = useState('')
+  const [distance, setDistance] = useState(targetMiles != null ? String(targetMiles) : '')
   const [effort, setEffort] = useState('')
   const [phase, setPhase] = useState('editing')
   const [errorMsg, setErrorMsg] = useState('')
@@ -53,6 +53,7 @@ export default function RunLog({ session, reload }) {
         <div className="session-title">Log: {DAY_LABEL[session.day_type]}</div>
         <div className="session-sub">
           Block {session.block} · Week {session.week} · {formatSessionDate(session.date)}
+          {targetMiles != null ? ` · target ${targetMiles} mi` : ''}
         </div>
       </div>
 

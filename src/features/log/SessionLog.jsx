@@ -4,6 +4,8 @@ import { useProgramData } from '../../hooks/useProgramData.js'
 import { useLastAccessories } from '../../hooks/useLastAccessories.js'
 import { buildWorkingSets } from '../../../lib/workingSets.js'
 import { suggestTM } from '../../../lib/suggestTM.js'
+import { weekGlobalOf, runWeekCompleted, currentRunTargets } from '../../../lib/runPlan.js'
+import { accessoriesFor } from '../../lib/accessoryPlan.js'
 import { DAY_LIFT, DAY_LABEL, isStrengthDay, formatSessionDate } from '../../lib/dayTypes.js'
 import RestTimer from './RestTimer.jsx'
 import RunLog from './RunLog.jsx'
@@ -21,7 +23,8 @@ const blankAccessory = () => ({
 const str = (v) => (v == null ? '' : String(v))
 
 export default function SessionLog() {
-  const { loading, error, lifts, inventory, barWeight, nextSession, reload } = useProgramData()
+  const { loading, error, lifts, inventory, barWeight, nextSession, allSessions, reload } =
+    useProgramData()
   const session = nextSession
   const strength = !!session && isStrengthDay(session.day_type)
 
@@ -42,7 +45,10 @@ export default function SessionLog() {
   }
 
   if (!strength) {
-    return <RunLog key={session.id} session={session} reload={reload} />
+    const wg = weekGlobalOf(session.block, session.week)
+    const targets = currentRunTargets(wg, (w) => runWeekCompleted(allSessions, w))
+    const targetMiles = session.day_type === 'long_run' ? targets.long : targets.easy
+    return <RunLog key={session.id} session={session} targetMiles={targetMiles} reload={reload} />
   }
 
   const lift = lifts.find((l) => l.name === DAY_LIFT[session.day_type])
@@ -53,6 +59,26 @@ export default function SessionLog() {
   const tm = Number(lift.current_tm)
   const sets = buildWorkingSets(tm, session.week, { barWeight, inventory })
 
+  // Every session gets the prescribed accessories, with weights pre-filled from
+  // the last same-day session where available (matched by name).
+  const lastByName = Object.fromEntries((template.accessories ?? []).map((a) => [a.name, a]))
+  const planned = accessoriesFor(session.day_type)
+  const initialAccessories = [
+    ...planned.map((p) => {
+      const last = lastByName[p.name]
+      return {
+        name: p.name,
+        set1_weight: last?.set1_weight ?? '',
+        set1_reps: last?.set1_reps ?? '',
+        set2_weight: last?.set2_weight ?? '',
+        set2_reps: last?.set2_reps ?? '',
+        notes: last?.notes ?? p.note ?? '',
+      }
+    }),
+    // keep any past custom accessories not in the prescribed plan
+    ...(template.accessories ?? []).filter((a) => !planned.some((p) => p.name === a.name)),
+  ]
+
   return (
     <SessionLogForm
       key={session.id}
@@ -60,7 +86,7 @@ export default function SessionLog() {
       lift={lift}
       tm={tm}
       sets={sets}
-      initialAccessories={template.accessories}
+      initialAccessories={initialAccessories}
       reload={reload}
     />
   )
