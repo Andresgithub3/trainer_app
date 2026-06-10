@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient.js'
+import { appliedBlocksFromHistory } from '../../lib/blockIncrease.js'
 
 const EMPTY = {
   loading: true,
@@ -10,6 +11,7 @@ const EMPTY = {
   barWeight: 45,
   nextSession: null,
   allSessions: [],
+  appliedBlocks: [],
 }
 
 // Loads the data the Today card needs (settings, lifts, plate inventory, the
@@ -19,7 +21,7 @@ export function useProgramData() {
   const [state, setState] = useState(EMPTY)
 
   const load = useCallback(async () => {
-    const [settings, lifts, inventory, session, all] = await Promise.all([
+    const [settings, lifts, inventory, session, all, tmh] = await Promise.all([
       supabase.from('settings').select('*').maybeSingle(),
       supabase.from('lifts').select('*'),
       supabase.from('plate_inventory').select('*').order('plate_weight', { ascending: true }),
@@ -31,10 +33,17 @@ export function useProgramData() {
         .limit(1)
         .maybeSingle(),
       supabase.from('sessions').select('status, block, week, day_type'),
+      supabase.from('tm_history').select('reason'),
     ])
 
     const error =
-      settings.error || lifts.error || inventory.error || session.error || all.error || null
+      settings.error ||
+      lifts.error ||
+      inventory.error ||
+      session.error ||
+      all.error ||
+      tmh.error ||
+      null
 
     const invRows = inventory.data ?? []
     setState({
@@ -46,6 +55,7 @@ export function useProgramData() {
       barWeight: Number(invRows[0]?.bar_weight ?? 45),
       nextSession: session.data ?? null,
       allSessions: all.data ?? [],
+      appliedBlocks: appliedBlocksFromHistory((tmh.data ?? []).map((r) => r.reason)),
     })
   }, [])
 

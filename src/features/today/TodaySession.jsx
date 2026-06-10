@@ -2,12 +2,14 @@ import { supabase } from '../../supabaseClient.js'
 import { useProgramData } from '../../hooks/useProgramData.js'
 import { buildWorkingSets } from '../../../lib/workingSets.js'
 import { weekGlobalOf, runWeekCompleted, currentRunTargets, RUN_UNIT } from '../../../lib/runPlan.js'
+import { shouldPromptBlockIncrease } from '../../../lib/blockIncrease.js'
 import { accessoriesFor } from '../../lib/accessoryPlan.js'
 import { DAY_LIFT, DAY_LABEL, isStrengthDay, formatSessionDate } from '../../lib/dayTypes.js'
 import SetCard from './SetCard.jsx'
+import BlockIncreasePrompt from './BlockIncreasePrompt.jsx'
 
 export default function TodaySession({ onStartLog }) {
-  const { loading, error, lifts, inventory, barWeight, nextSession, allSessions, reload } =
+  const { loading, error, lifts, inventory, barWeight, nextSession, allSessions, appliedBlocks, reload } =
     useProgramData()
 
   if (loading) return <div className="centered muted">Loading session…</div>
@@ -33,6 +35,10 @@ export default function TodaySession({ onStartLog }) {
     </div>
   )
 
+  const blockPrompt = shouldPromptBlockIncrease(block, appliedBlocks) ? (
+    <BlockIncreasePrompt block={block} lifts={lifts} onDone={reload} />
+  ) : null
+
   const actions = (
     <>
       <button className="btn btn-primary finish-btn" onClick={onStartLog}>
@@ -52,6 +58,7 @@ export default function TodaySession({ onStartLog }) {
     return (
       <section className="screen">
         {header}
+        {blockPrompt}
         <div className="card run-card">
           <div className="weight-row">
             <span className="weight">{miles}</span>
@@ -86,6 +93,7 @@ export default function TodaySession({ onStartLog }) {
   return (
     <section className="screen">
       {header}
+      {blockPrompt}
       <div className="tm-line muted">
         Training Max {tm} lb · bar {barWeight} lb
       </div>
