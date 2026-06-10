@@ -25,20 +25,31 @@ values and test fixtures.
 | `npm run lint`     | ESLint over the project              |
 | `npm run test`     | Run the Vitest suite once            |
 | `npm run test:watch` | Vitest in watch mode               |
+| `npm run seed`     | Load the current program state into Supabase (idempotent) |
+| `npm run verify`   | Assert the seeded DB reproduces the current position |
+| `npm run icons`    | Regenerate the PWA icons             |
 
-## Build order
+## Features
 
-This app is built incrementally, pausing for review after each step:
+- **Wave-weight engine** (`lib/`) — working sets from Training Max + wave week, rounded
+  to loadable plates via subset-sum enumeration (PRD §5.1/§5.6).
+- **TM auto-suggestion** — estimate 1RM from an AMRAP top set and recommend a raise
+  beyond the standard block bump (§5.2).
+- **Program calendar** — 12-week / 3-block schedule with a catch-up model (§5.5).
+- **Run plan + progression** — weekly mileage with a 2-consecutive-completed-weeks gate.
+- **Fast logging** — sets, prescribed accessories, runs, and a rest timer (§5.4).
+- **Progress charts** — TM over time, AMRAP trend, run volume vs. plan (§5.3).
+- **Settings** — editable plate inventory + Training Max overrides.
+- **PWA** — installable, dark, mobile-first, with realtime phone/laptop sync.
 
-1. **Scaffold** — repo, Vite + React, ESLint, Vitest, CI, `lib/`. ← _current_
-2. **Calculation engine** — `lib/` wave-weight calculator + plate-rounding, fully tested.
-3. **Supabase schema + seed** — reproduce the current program position (Week 2, next: Bench).
-4. **TM auto-suggestion** — `lib/` logic tested against real calibration history.
-5. **Mobile UI** — today's session card + plate loading → fast logging → progress charts; PWA wiring.
+The framework-free logic in `lib/` is fully unit-tested (`npm run test`).
 
 ## Getting started
 
 ```bash
 npm install
+cp .env.example .env   # fill in your Supabase URL + keys
+# apply supabase/migrations/0001_init.sql in the Supabase SQL editor
+npm run seed && npm run verify
 npm run dev
 ```

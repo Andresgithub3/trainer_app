@@ -22,7 +22,26 @@ const blankAccessory = () => ({
 })
 const str = (v) => (v == null ? '' : String(v))
 
+function LoggedConfirmation({ summary, onContinue }) {
+  return (
+    <section className="screen">
+      <div className="card">
+        <h2 className="auth-title">Logged ✓</h2>
+        <p className="muted">
+          {summary.label} marked complete.{summary.note ? ` ${summary.note}` : ''}
+        </p>
+      </div>
+      <button className="btn btn-primary finish-btn" onClick={onContinue}>
+        Next session →
+      </button>
+    </section>
+  )
+}
+
 export default function SessionLog() {
+  // Held in the parent so the realtime refetch (which advances nextSession the
+  // moment a session is completed) can't unmount the confirmation.
+  const [completed, setCompleted] = useState(null)
   const { loading, error, lifts, inventory, barWeight, nextSession, allSessions, reload } =
     useProgramData()
   const session = nextSession
@@ -36,6 +55,17 @@ export default function SessionLog() {
 
   if (loading || template.loading) return <div className="centered muted">Loading…</div>
   if (error) return <div className="centered error">Couldn’t load: {error.message}</div>
+  if (completed) {
+    return (
+      <LoggedConfirmation
+        summary={completed}
+        onContinue={() => {
+          setCompleted(null)
+          reload()
+        }}
+      />
+    )
+  }
   if (!session) {
     return (
       <section className="screen">
@@ -48,7 +78,7 @@ export default function SessionLog() {
     const wg = weekGlobalOf(session.block, session.week)
     const targets = currentRunTargets(wg, (w) => runWeekCompleted(allSessions, w))
     const targetMiles = session.day_type === 'long_run' ? targets.long : targets.easy
-    return <RunLog key={session.id} session={session} targetMiles={targetMiles} reload={reload} />
+    return <RunLog key={session.id} session={session} targetMiles={targetMiles} onDone={setCompleted} />
   }
 
   const lift = lifts.find((l) => l.name === DAY_LIFT[session.day_type])
@@ -87,12 +117,12 @@ export default function SessionLog() {
       tm={tm}
       sets={sets}
       initialAccessories={initialAccessories}
-      reload={reload}
+      onDone={setCompleted}
     />
   )
 }
 
-function SessionLogForm({ session, lift, tm, sets, initialAccessories, reload }) {
+function SessionLogForm({ session, lift, tm, sets, initialAccessories, onDone }) {
   const [actuals, setActuals] = useState(() =>
     Object.fromEntries(
       sets.map((s) => [s.setIndex, { weight: String(s.chosen), reps: String(s.reps) }]),
@@ -187,26 +217,14 @@ function SessionLogForm({ session, lift, tm, sets, initialAccessories, reload })
       const done = await supabase.from('sessions').update({ status: 'completed' }).eq('id', session.id)
       if (done.error) throw done.error
 
-      setPhase('done')
-      reload()
+      onDone({
+        label: `${DAY_LABEL[session.day_type]} · ${formatSessionDate(session.date)}`,
+        note: applyRaise && Number(tmValue) !== tm ? `Training Max → ${tmValue}.` : '',
+      })
     } catch (e) {
       setPhase('error')
       setErrorMsg(e.message)
     }
-  }
-
-  if (phase === 'done') {
-    return (
-      <section className="screen">
-        <div className="card">
-          <h2 className="auth-title">Session logged ✓</h2>
-          <p className="muted">
-            {DAY_LABEL[session.day_type]} · {formatSessionDate(session.date)} marked complete.
-            {applyRaise && Number(tmValue) !== tm ? ` Training Max → ${tmValue}.` : ''}
-          </p>
-        </div>
-      </section>
-    )
   }
 
   return (
@@ -288,9 +306,7 @@ function SessionLogForm({ session, lift, tm, sets, initialAccessories, reload })
       <div className="acc-section">
         <div className="acc-head">
           <span className="set-name">Accessories</span>
-          <span className="muted acc-hint">
-            {initialAccessories.length ? `from last ${DAY_LABEL[session.day_type]}` : 'none recorded'}
-          </span>
+          <span className="muted acc-hint">prescribed · weights from last session</span>
         </div>
         {accessories.map((a, i) => (
           <div className="card acc-row" key={a._id}>

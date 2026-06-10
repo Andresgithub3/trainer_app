@@ -3,7 +3,7 @@ import { supabase } from '../../supabaseClient.js'
 import { DAY_LABEL, formatSessionDate } from '../../lib/dayTypes.js'
 
 // Run-day logging (PRD §5.4): type, duration, distance, perceived effort.
-export default function RunLog({ session, targetMiles, reload }) {
+export default function RunLog({ session, targetMiles, onDone }) {
   const [type, setType] = useState(session.day_type === 'long_run' ? 'long' : 'easy')
   const [duration, setDuration] = useState('')
   const [distance, setDistance] = useState(targetMiles != null ? String(targetMiles) : '')
@@ -26,25 +26,11 @@ export default function RunLog({ session, targetMiles, reload }) {
       if (ins.error) throw ins.error
       const done = await supabase.from('sessions').update({ status: 'completed' }).eq('id', session.id)
       if (done.error) throw done.error
-      setPhase('done')
-      reload()
+      onDone({ label: `${DAY_LABEL[session.day_type]} · ${formatSessionDate(session.date)}`, note: '' })
     } catch (e) {
       setPhase('error')
       setErrorMsg(e.message)
     }
-  }
-
-  if (phase === 'done') {
-    return (
-      <section className="screen">
-        <div className="card">
-          <h2 className="auth-title">Run logged ✓</h2>
-          <p className="muted">
-            {DAY_LABEL[session.day_type]} · {formatSessionDate(session.date)} marked complete.
-          </p>
-        </div>
-      </section>
-    )
   }
 
   return (
