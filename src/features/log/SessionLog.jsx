@@ -1,68 +1,99 @@
 import { useMemo, useState } from 'react'
 import { supabase } from '../../supabaseClient.js'
 import { useProgramData } from '../../hooks/useProgramData.js'
+import { useLastAccessories } from '../../hooks/useLastAccessories.js'
 import { buildWorkingSets } from '../../../lib/workingSets.js'
 import { suggestTM } from '../../../lib/suggestTM.js'
 import { DAY_LIFT, DAY_LABEL, isStrengthDay, formatSessionDate } from '../../lib/dayTypes.js'
+import RestTimer from './RestTimer.jsx'
+import RunLog from './RunLog.jsx'
 
 const ordinal = ['Set 1', 'Set 2', 'Top set']
+const blankAccessory = () => ({
+  _id: crypto.randomUUID(),
+  name: '',
+  set1_weight: '',
+  set1_reps: '',
+  set2_weight: '',
+  set2_reps: '',
+  notes: '',
+})
+const str = (v) => (v == null ? '' : String(v))
 
 export default function SessionLog() {
   const { loading, error, lifts, inventory, barWeight, nextSession, reload } = useProgramData()
+  const session = nextSession
+  const strength = !!session && isStrengthDay(session.day_type)
 
-  if (loading) return <div className="centered muted">Loading…</div>
+  // Called unconditionally (hooks rule); resolves empty for non-strength days.
+  const template = useLastAccessories(
+    strength ? session.day_type : null,
+    session?.date ?? null,
+  )
+
+  if (loading || template.loading) return <div className="centered muted">Loading…</div>
   if (error) return <div className="centered error">Couldn’t load: {error.message}</div>
-  if (!nextSession) {
+  if (!session) {
     return (
       <section className="screen">
-        <div className="card muted">
-          No pending session to log. (Future sessions arrive with the program calendar.)
-        </div>
-      </section>
-    )
-  }
-  if (!isStrengthDay(nextSession.day_type)) {
-    return (
-      <section className="screen">
-        <div className="card muted">Run-day logging arrives in the next step.</div>
+        <div className="card muted">No pending session to log.</div>
       </section>
     )
   }
 
-  const lift = lifts.find((l) => l.name === DAY_LIFT[nextSession.day_type])
+  if (!strength) {
+    return <RunLog key={session.id} session={session} reload={reload} />
+  }
+
+  const lift = lifts.find((l) => l.name === DAY_LIFT[session.day_type])
   if (!lift) {
     return <section className="screen"><div className="card error">No lift for this day.</div></section>
   }
 
   const tm = Number(lift.current_tm)
-  const sets = buildWorkingSets(tm, nextSession.week, { barWeight, inventory })
+  const sets = buildWorkingSets(tm, session.week, { barWeight, inventory })
 
-  // key forces a fresh form (and useState init) when the session changes.
   return (
     <SessionLogForm
-      key={nextSession.id}
-      session={nextSession}
+      key={session.id}
+      session={session}
       lift={lift}
       tm={tm}
       sets={sets}
+      initialAccessories={template.accessories}
       reload={reload}
     />
   )
 }
 
-function SessionLogForm({ session, lift, tm, sets, reload }) {
+function SessionLogForm({ session, lift, tm, sets, initialAccessories, reload }) {
   const [actuals, setActuals] = useState(() =>
     Object.fromEntries(
       sets.map((s) => [s.setIndex, { weight: String(s.chosen), reps: String(s.reps) }]),
     ),
   )
+  const [accessories, setAccessories] = useState(() =>
+    initialAccessories.map((a) => ({
+      _id: crypto.randomUUID(),
+      name: str(a.name),
+      set1_weight: str(a.set1_weight),
+      set1_reps: str(a.set1_reps),
+      set2_weight: str(a.set2_weight),
+      set2_reps: str(a.set2_reps),
+      notes: str(a.notes),
+    })),
+  )
   const [applyRaise, setApplyRaise] = useState(false)
   const [tmValue, setTmValue] = useState('')
-  const [phase, setPhase] = useState('editing') // editing | saving | done | error
+  const [phase, setPhase] = useState('editing')
   const [errorMsg, setErrorMsg] = useState('')
 
   const setField = (i, field, value) =>
     setActuals((prev) => ({ ...prev, [i]: { ...prev[i], [field]: value } }))
+  const setAcc = (i, field, value) =>
+    setAccessories((prev) => prev.map((a, idx) => (idx === i ? { ...a, [field]: value } : a)))
+  const addAcc = () => setAccessories((prev) => [...prev, blankAccessory()])
+  const removeAcc = (i) => setAccessories((prev) => prev.filter((_, idx) => idx !== i))
 
   const amrapSet = sets.find((s) => s.isAmrap)
   const amrapWeight = amrapSet ? Number(actuals[amrapSet.setIndex].weight) : 0
@@ -83,8 +114,7 @@ function SessionLogForm({ session, lift, tm, sets, reload }) {
     try {
       const del = await supabase.from('set_logs').delete().eq('session_id', session.id)
       if (del.error) throw del.error
-
-      const rows = sets.map((s) => ({
+      const setRows = sets.map((s) => ({
         session_id: session.id,
         lift_id: lift.id,
         set_index: s.setIndex,
@@ -94,8 +124,26 @@ function SessionLogForm({ session, lift, tm, sets, reload }) {
         actual_weight: Number(actuals[s.setIndex].weight),
         actual_reps: Number(actuals[s.setIndex].reps),
       }))
-      const ins = await supabase.from('set_logs').insert(rows)
+      const ins = await supabase.from('set_logs').insert(setRows)
       if (ins.error) throw ins.error
+
+      const delAcc = await supabase.from('accessory_logs').delete().eq('session_id', session.id)
+      if (delAcc.error) throw delAcc.error
+      const accRows = accessories
+        .filter((a) => a.name.trim())
+        .map((a) => ({
+          session_id: session.id,
+          name: a.name.trim(),
+          set1_weight: a.set1_weight || null,
+          set1_reps: a.set1_reps === '' ? null : Number(a.set1_reps),
+          set2_weight: a.set2_weight || null,
+          set2_reps: a.set2_reps === '' ? null : Number(a.set2_reps),
+          notes: a.notes || null,
+        }))
+      if (accRows.length) {
+        const insAcc = await supabase.from('accessory_logs').insert(accRows)
+        if (insAcc.error) throw insAcc.error
+      }
 
       const newTM = Number(tmValue)
       if (applyRaise && newTM > 0 && newTM !== tm) {
@@ -183,6 +231,8 @@ function SessionLogForm({ session, lift, tm, sets, reload }) {
         ))}
       </div>
 
+      <RestTimer />
+
       {suggestion && (
         <div className={`card tm-card${suggestion.recommendRaise ? ' tm-card--raise' : ''}`}>
           <div className="tm-est">
@@ -192,11 +242,7 @@ function SessionLogForm({ session, lift, tm, sets, reload }) {
           <p className="muted tm-reason">{suggestion.reason}</p>
           {suggestion.recommendRaise || suggestion.impliedTM > tm ? (
             <label className="tm-apply">
-              <input
-                type="checkbox"
-                checked={applyRaise}
-                onChange={(e) => toggleRaise(e.target.checked)}
-              />
+              <input type="checkbox" checked={applyRaise} onChange={(e) => toggleRaise(e.target.checked)} />
               <span>Raise Training Max to</span>
               <input
                 className="input tm-input"
@@ -212,6 +258,45 @@ function SessionLogForm({ session, lift, tm, sets, reload }) {
           )}
         </div>
       )}
+
+      <div className="acc-section">
+        <div className="acc-head">
+          <span className="set-name">Accessories</span>
+          <span className="muted acc-hint">
+            {initialAccessories.length ? `from last ${DAY_LABEL[session.day_type]}` : 'none recorded'}
+          </span>
+        </div>
+        {accessories.map((a, i) => (
+          <div className="card acc-row" key={a._id}>
+            <div className="acc-row-head">
+              <input
+                className="input acc-name"
+                placeholder="Accessory name"
+                value={a.name}
+                onChange={(e) => setAcc(i, 'name', e.target.value)}
+              />
+              <button className="link-btn acc-remove" onClick={() => removeAcc(i)} aria-label="Remove">
+                ✕
+              </button>
+            </div>
+            <div className="acc-grid">
+              <input className="input" placeholder="S1 wt" value={a.set1_weight} onChange={(e) => setAcc(i, 'set1_weight', e.target.value)} />
+              <input className="input" placeholder="S1 reps" inputMode="numeric" value={a.set1_reps} onChange={(e) => setAcc(i, 'set1_reps', e.target.value)} />
+              <input className="input" placeholder="S2 wt" value={a.set2_weight} onChange={(e) => setAcc(i, 'set2_weight', e.target.value)} />
+              <input className="input" placeholder="S2 reps" inputMode="numeric" value={a.set2_reps} onChange={(e) => setAcc(i, 'set2_reps', e.target.value)} />
+            </div>
+            <input
+              className="input acc-notes"
+              placeholder="Notes"
+              value={a.notes}
+              onChange={(e) => setAcc(i, 'notes', e.target.value)}
+            />
+          </div>
+        ))}
+        <button className="btn btn-secondary" onClick={addAcc}>
+          + Add accessory
+        </button>
+      </div>
 
       {phase === 'error' && <p className="error">Save failed: {errorMsg}</p>}
 

@@ -324,6 +324,108 @@ body {
   text-decoration: underline;
 }
 
+.btn-secondary {
+  width: 100%;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.textarea {
+  min-height: 60px;
+  padding: 0.6rem 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+}
+select.input {
+  appearance: none;
+}
+
+/* ---- Rest timer ---- */
+.rest-timer {
+  padding: 0.8rem 1rem;
+}
+.rest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rest-clock {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.rest-clock--run {
+  color: var(--accent);
+}
+.rest-presets {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.chip-btn {
+  flex: 1;
+  min-height: 44px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font-weight: 700;
+}
+.chip-btn:disabled {
+  opacity: 0.5;
+}
+
+/* ---- Accessories ---- */
+.acc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.acc-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 0.3rem;
+}
+.acc-hint {
+  font-size: 0.8rem;
+}
+.acc-row {
+  padding: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.acc-row-head {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.acc-name {
+  flex: 1;
+  font-weight: 700;
+}
+.acc-remove {
+  min-height: 44px;
+  min-width: 44px;
+  color: var(--muted);
+}
+.acc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 0.4rem;
+}
+.acc-grid .input {
+  min-height: 46px;
+  padding: 0 0.4rem;
+  text-align: center;
+  font-size: 0.95rem;
+}
+.acc-notes {
+  min-height: 44px;
+}
+
 .tm-card {
   border-color: var(--line);
 }
