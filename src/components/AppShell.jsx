@@ -1,21 +1,16 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useAuth } from '../auth/authContext.js'
 import TodaySession from '../features/today/TodaySession.jsx'
 import SessionLog from '../features/log/SessionLog.jsx'
+
+// Charts (Recharts) are heavy and only needed on the Progress tab — load on demand.
+const Progress = lazy(() => import('../features/progress/Progress.jsx'))
 
 const TABS = [
   { id: 'today', label: 'Today' },
   { id: 'log', label: 'Log' },
   { id: 'progress', label: 'Progress' },
 ]
-
-function Placeholder({ title }) {
-  return (
-    <section className="screen">
-      <div className="card muted">{title} — coming in the next step.</div>
-    </section>
-  )
-}
 
 export default function AppShell() {
   const { signOut } = useAuth()
@@ -33,7 +28,11 @@ export default function AppShell() {
       <main className="content">
         {tab === 'today' && <TodaySession onStartLog={() => setTab('log')} />}
         {tab === 'log' && <SessionLog />}
-        {tab === 'progress' && <Placeholder title="Progress charts" />}
+        {tab === 'progress' && (
+          <Suspense fallback={<div className="centered muted">Loading charts…</div>}>
+            <Progress />
+          </Suspense>
+        )}
       </main>
 
       <nav className="bottom-nav">
