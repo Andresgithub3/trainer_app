@@ -3,7 +3,7 @@ import { buildWorkingSets } from '../../../lib/workingSets.js'
 import { DAY_LIFT, DAY_LABEL, isStrengthDay, formatSessionDate } from '../../lib/dayTypes.js'
 import SetCard from './SetCard.jsx'
 
-export default function TodaySession() {
+export default function TodaySession({ onStartLog }) {
   const { loading, error, lifts, inventory, barWeight, nextSession } = useProgramData()
 
   if (loading) return <div className="centered muted">Loading session…</div>
@@ -54,6 +54,9 @@ export default function TodaySession() {
           <SetCard key={set.setIndex} set={set} barWeight={barWeight} inventory={inventory} />
         ))}
       </div>
+      <button className="btn btn-primary finish-btn" onClick={onStartLog}>
+        Start logging →
+      </button>
     </section>
   )
 }

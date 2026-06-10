@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../auth/authContext.js'
 import TodaySession from '../features/today/TodaySession.jsx'
+import SessionLog from '../features/log/SessionLog.jsx'
 
 const TABS = [
   { id: 'today', label: 'Today' },
@@ -30,8 +31,8 @@ export default function AppShell() {
       </header>
 
       <main className="content">
-        {tab === 'today' && <TodaySession />}
-        {tab === 'log' && <Placeholder title="Fast logging" />}
+        {tab === 'today' && <TodaySession onStartLog={() => setTab('log')} />}
+        {tab === 'log' && <SessionLog />}
         {tab === 'progress' && <Placeholder title="Progress charts" />}
       </main>
 

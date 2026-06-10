@@ -293,3 +293,61 @@ body {
   font-family: ui-monospace, monospace;
   font-size: 0.9rem;
 }
+
+/* ---- Logging ---- */
+.log-inputs {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 0.6rem;
+}
+.log-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.log-field span {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.log-field .input {
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-align: center;
+}
+.finish-btn {
+  width: 100%;
+  margin-top: 0.3rem;
+}
+
+.tm-card {
+  border-color: var(--line);
+}
+.tm-card--raise {
+  border-color: var(--accent);
+}
+.tm-est {
+  font-size: 1.05rem;
+}
+.tm-reason {
+  font-size: 0.9rem;
+  margin: 0.4rem 0 0.7rem;
+}
+.tm-apply {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+.tm-apply input[type='checkbox'] {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+.tm-input {
+  width: 6rem;
+  min-height: 44px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+}
