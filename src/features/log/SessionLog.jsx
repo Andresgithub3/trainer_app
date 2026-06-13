@@ -117,12 +117,22 @@ export default function SessionLog() {
       tm={tm}
       sets={sets}
       initialAccessories={initialAccessories}
+      lastAccessories={template.accessories ?? []}
       onDone={setCompleted}
     />
   )
 }
 
-function SessionLogForm({ session, lift, tm, sets, initialAccessories, onDone }) {
+const fmtLast = (a) => {
+  const set = (w, r) => (w == null && r == null ? null : `${w ?? ''}${r != null ? `×${r}` : ''}`.trim())
+  return [set(a.set1_weight, a.set1_reps), set(a.set2_weight, a.set2_reps)].filter(Boolean).join(', ')
+}
+
+function SessionLogForm({ session, lift, tm, sets, initialAccessories, lastAccessories, onDone }) {
+  const targetByName = Object.fromEntries(
+    accessoriesFor(session.day_type).map((p) => [p.name, p.target]),
+  )
+  const lastByName = Object.fromEntries((lastAccessories ?? []).map((a) => [a.name, a]))
   const [actuals, setActuals] = useState(() =>
     Object.fromEntries(
       sets.map((s) => [s.setIndex, { weight: String(s.chosen), reps: String(s.reps) }]),
@@ -306,9 +316,12 @@ function SessionLogForm({ session, lift, tm, sets, initialAccessories, onDone })
       <div className="acc-section">
         <div className="acc-head">
           <span className="set-name">Accessories</span>
-          <span className="muted acc-hint">prescribed · weights from last session</span>
+          <span className="muted acc-hint">prescribed · weights &amp; reps from last time</span>
         </div>
-        {accessories.map((a, i) => (
+        {accessories.map((a, i) => {
+          const target = targetByName[a.name]
+          const last = lastByName[a.name] ? fmtLast(lastByName[a.name]) : ''
+          return (
           <div className="card acc-row" key={a._id}>
             <div className="acc-row-head">
               <input
@@ -321,6 +334,13 @@ function SessionLogForm({ session, lift, tm, sets, initialAccessories, onDone })
                 ✕
               </button>
             </div>
+            {(target || last) && (
+              <div className="acc-guide muted">
+                {target ? `target ${target}` : ''}
+                {target && last ? ' · ' : ''}
+                {last ? `last: ${last}` : ''}
+              </div>
+            )}
             <div className="acc-grid">
               <input className="input" placeholder="S1 wt" value={a.set1_weight} onChange={(e) => setAcc(i, 'set1_weight', e.target.value)} />
               <input className="input" placeholder="S1 reps" inputMode="numeric" value={a.set1_reps} onChange={(e) => setAcc(i, 'set1_reps', e.target.value)} />
@@ -334,7 +354,8 @@ function SessionLogForm({ session, lift, tm, sets, initialAccessories, onDone })
               onChange={(e) => setAcc(i, 'notes', e.target.value)}
             />
           </div>
-        ))}
+          )
+        })}
         <button className="btn btn-secondary" onClick={addAcc}>
           + Add accessory
         </button>
